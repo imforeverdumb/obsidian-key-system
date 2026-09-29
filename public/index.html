@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Obsidian — Get Key</title>
+<style>
+  body { background:#0d0d12; color:#eee; font-family:Segoe UI,Arial,sans-serif; display:flex; justify-content:center; padding:40px 16px; margin:0; }
+  .card { background:#16161d; border:1px solid #2a2a35; border-radius:12px; padding:28px; max-width:480px; width:100%; text-align:center; }
+  h1 { margin:0 0 8px; font-size:24px; }
+  p { color:#9a9aad; font-size:14px; }
+  button { background:#7c3aed; color:#fff; border:0; border-radius:8px; padding:12px 20px; font-size:15px; font-weight:700; cursor:pointer; width:100%; margin-top:12px; }
+  button:disabled { opacity:.6; cursor:wait; }
+  #key { background:#0d0d12; border:1px dashed #7c3aed; border-radius:8px; padding:14px; margin-top:14px; font-size:18px; font-weight:700; letter-spacing:1px; display:none; word-break:break-all; }
+  #status { min-height:20px; font-size:13px; margin-top:10px; color:#9a9aad; }
+  code { color:#c4b5fd; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Obsidian Key System</h1>
+  <p>Keys last 24h and lock to 1 PC on first use.<br/>Complete the checkpoint (TODO: add Linkvertise/LootLabs here), then press Get Key.</p>
+  <p>HWID: <code id="hwid">—</code></p>
+  <button id="btn">Get Key</button>
+  <div id="key"></div>
+  <div id="status"></div>
+  <p style="margin-top:16px">Paste the key into the Obsidian app on startup.</p>
+</div>
+<script>
+  const API = "https://obsidian-key-system.vercel.app";
+  const params = new URLSearchParams(location.search);
+  const hwid = params.get("hwid") || "";
+  document.getElementById("hwid").textContent = hwid || "(open this page from the Obsidian app)";
+  const btn = document.getElementById("btn");
+  const keyBox = document.getElementById("key");
+  const status = document.getElementById("status");
+  btn.onclick = async () => {
+    btn.disabled = true;
+    status.textContent = "Issuing key…";
+    try {
+      // TODO: include checkpointToken once your checkpoint is wired.
+      const r = await fetch(API + "/api/key/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hwid })
+      });
+      const j = await r.json();
+      if (j.ok) {
+        keyBox.style.display = "block";
+        keyBox.textContent = j.key;
+        status.textContent = "Valid until " + j.expiresAt;
+      } else {
+        status.textContent = "Error: " + (j.error || "unknown");
+      }
+    } catch (e) {
+      status.textContent = "Network error: " + e.message;
+    }
+    btn.disabled = false;
+  };
+</script>
+</body>
+</html>
