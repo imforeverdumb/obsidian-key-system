@@ -41,10 +41,20 @@
     return m ? decodeURIComponent(m[1]) : "";
   }
 
+  function readStored(name) {
+    try {
+      const s = sessionStorage.getItem(name);
+      if (s) return s;
+    } catch {}
+    const m = document.cookie.match(new RegExp("(?:^|;\\s*)" + name + "=([^;]+)"));
+    return m ? decodeURIComponent(m[1]) : "";
+  }
+
   const session = readSession();
-  // HWID/provider may arrive via query (provider return), sessionStorage, or cookie fallback.
-  const hwid = params.get("hwid") || "";
-  const provider = (params.get("provider") || "").toLowerCase();
+  // After a provider redirect the query string is gone (static target), so fall
+  // back to what index saved in this tab (sessionStorage) and cookies.
+  const hwid = params.get("hwid") || readStored("obs_hwid");
+  const provider = ((params.get("provider") || readStored("obs_provider")) || "").toLowerCase();
   document.getElementById("hwid").textContent = hwid || "(unknown — restart from home)";
   document.getElementById("prov").textContent = provider || "(unknown)";
 
@@ -103,8 +113,10 @@
         keyBox.textContent = j.key;
         status.textContent = "Valid until " + j.expiresAt + " — click key to copy. Session used up.";
         btn.textContent = "Key issued";
-        try { sessionStorage.removeItem("obs_session"); } catch {}
+        try { ["obs_session", "obs_hwid", "obs_provider"].forEach((k) => sessionStorage.removeItem(k)); } catch {}
         document.cookie = "obs_session=; Max-Age=0; Path=/";
+        document.cookie = "obs_hwid=; Max-Age=0; Path=/";
+        document.cookie = "obs_provider=; Max-Age=0; Path=/";
       } else {
         status.textContent = "Error: " + (j.error || "unknown");
         btn.textContent = "Try again from home";

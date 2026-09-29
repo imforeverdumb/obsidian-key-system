@@ -58,10 +58,15 @@
   const btnLv = document.getElementById("btnLv");
   const btnWi = document.getElementById("btnWi");
 
-  function saveSession(s) {
+  function saveSession(s, h, p) {
     try {
       sessionStorage.setItem("obs_session", s);
-      document.cookie = "obs_session=" + encodeURIComponent(s) + "; Max-Age=1200; Path=/; SameSite=Lax";
+      sessionStorage.setItem("obs_hwid", h);
+      sessionStorage.setItem("obs_provider", p);
+      const attrs = "; Max-Age=1200; Path=/; SameSite=Lax";
+      document.cookie = "obs_session=" + encodeURIComponent(s) + attrs;
+      document.cookie = "obs_hwid=" + encodeURIComponent(h) + attrs;
+      document.cookie = "obs_provider=" + encodeURIComponent(p) + attrs;
     } catch {}
   }
 
@@ -77,7 +82,7 @@
       });
       const j = await r.json();
       if (!j.ok) { status.textContent = "Error: " + (j.error || "unknown"); btnLv.disabled = btnWi.disabled = false; return; }
-      saveSession(j.session);
+      saveSession(j.session, hwid, provider);
       if (providerUrl) {
         // Same-tab so our session cookie/storage is there when they come back.
         location.href = providerUrl;
