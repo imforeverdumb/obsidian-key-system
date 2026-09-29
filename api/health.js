@@ -1,5 +1,5 @@
 // GET /api/health — uptime / KV wiring check
-const { hasKv } = require("../../lib/store");
+const { hasKv } = require("../lib/store");
 
 module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");

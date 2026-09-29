@@ -71,6 +71,31 @@
       btn.onclick = () => location.href = "/";
       return;
     }
+    // Linkvertise appends ?hash= when Anti-Bypassing is on. It dies in ~10s,
+    // so confirm it with the server immediately on arrival.
+    const lvHash = params.get("hash") || "";
+    if (lvHash) {
+      status.textContent = "Confirming Linkvertise completion…";
+      try {
+        const vr = await fetch(API + "/api/checkpoint/lv-verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session, hash: lvHash })
+        });
+        const vj = await vr.json();
+        if (vj.ok) status.textContent = "Linkvertise completion confirmed.";
+        else if (vj.error !== "not-configured") {
+          status.textContent = "Completion check failed: " + (vj.error || "unknown") + " — go through the step again.";
+          btn.textContent = "Not confirmed — go home";
+          btn.disabled = false;
+          btn.onclick = () => location.href = "/";
+          return;
+        }
+      } catch (e) {
+        status.textContent = "Network error: " + e.message;
+        return;
+      }
+    }
     try {
       const r = await fetch(API + "/api/checkpoint/status?session=" + encodeURIComponent(session));
       const j = await r.json();

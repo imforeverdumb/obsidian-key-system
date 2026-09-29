@@ -3,18 +3,16 @@
 //
 // SECURITY: a valid, unused checkpoint session is REQUIRED. Sessions are
 // created by POST /api/checkpoint/start (index page) and consumed here
-// single-use, bound to HWID + IP with a 20-min TTL. Visiting /get-key
-// directly, replaying a session, or swapping HWID/IP all fail.
-//
-// TODO when provider API keys arrive:
-//  - Work.ink: verify completion via their API before consuming the session.
-//  - Linkvertise: verify callback/token before consuming the session.
-// Until then sessions enforce ORDER (must come through index + provider);
-// provider callbacks will additionally enforce COMPLETION.
+// single-use, bound to HWID + trusted client IP with a 20-min TTL, plus a
+// 30s minimum age. Visiting /get-key directly, replaying a session, instant
+// start->create scripts, or swapping HWID/IP all fail.
+// For provider=linkvertise with LINKVERTISE_TOKEN set, the session must also
+// carry a confirmed Linkvertise anti-bypass hash (see lv-verify.js).
+// Work.ink has no public completion API, so it stays session-gated.
 //
 // Live URL: https://obsidian-key-system.vercel.app/api/key/create
 const { KEY_TTL_SECONDS, generateKey, hashKey } = require("../../lib/keys");
-const { storeSet } = require("../../lib/store");
+const { storeSet, storeGet } = require("../../lib/store");
 const cp = require("../../lib/checkpoint");
 
 function readBody(req) {
@@ -59,8 +57,23 @@ module.exports = async (req, res) => {
   if (await cp.overRateLimit(`rl:create:${ip}`, 10, 3600))
     return res.status(429).json({ ok: false, error: "Too many keys. Wait an hour." });
 
-  // TODO: verify provider completion here (Work.ink / Linkvertise API) using
-  // body.checkpointToken or a server-side callback record, BEFORE consuming.
+  // Peek before consuming: enforce minimum age (kills instant automation) and,
+  // for linkvertise with LINKVERTISE_TOKEN set, a confirmed Linkvertise hash.
+  const peek = await storeGet(`sess:${session}`);
+  if (!peek) return res.status(403).json({ ok: false, error: "No checkpoint session. Start from the home page first." });
+  const ageSec = (Date.now() - Date.parse(peek.createdAt || 0)) / 1000;
+  if (ageSec < cp.MIN_SESSION_AGE_SECONDS) {
+    return res.status(403).json({
+      ok: false,
+      error: `Too fast — finish the ${provider} step first (wait ~30s).`,
+    });
+  }
+  if (provider === "linkvertise" && process.env.LINKVERTISE_TOKEN && !peek.lvOk) {
+    return res.status(403).json({
+      ok: false,
+      error: "Linkvertise completion not confirmed. Go through the Linkvertise step again.",
+    });
+  }
 
   const check = await cp.consumeSession(session, { hwid, ip });
   if (!check.ok) return res.status(403).json({ ok: false, error: check.error });

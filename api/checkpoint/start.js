@@ -41,6 +41,8 @@ module.exports = async (req, res) => {
   const ip = cp.clientIp(req);
   if (await cp.overRateLimit(`rl:start:${ip}`, 10, 3600))
     return res.status(429).json({ ok: false, error: "Too many tries. Wait an hour." });
+  if (await cp.overRateLimit(`rl:starthwid:${hwid}`, 5, 3600))
+    return res.status(429).json({ ok: false, error: "Too many tries for this PC. Wait an hour." });
 
   const { token, record } = await cp.createSession({ hwid, provider, ip });
   return res.status(200).json({ ok: true, session: token, expiresAt: record.expiresAt });

@@ -41,16 +41,25 @@ Option B — separate repo just for keysystem:
 4. `/get-key` checks `GET /api/checkpoint/status?session=` → enables Generate → `POST /api/key/create { hwid, provider, session }` consumes the session, issues 24h key.
 5. App verifies via `POST /api/key/verify { key, hwid }` (binds HWID first use).
 
-Direct `/get-key` visits, replays, HWID/IP swaps all fail. Rate limits: 10 starts + 10 creates per IP/hour.
+Direct `/get-key` visits, replays, instant start→create scripts (<30s), HWID/IP swaps all fail.
+Rate limits: 10 starts + 10 creates per IP/hour, 5 starts per HWID/hour.
+Keys are 60-bit random (not enumerable). KV is REQUIRED — without it serverless
+instances don't share sessions/keys/rate-limits (see pentest notes).
 
-## Provider links (you provide later)
+## Provider setup
 
-- Edit `public/index.html`: set `LINKVERTISE_URL` and `WORKINK_URL`.
-- Inside each dashboard set its destination/target to `https://obsidian-key-system.vercel.app/get-key`.
-- When API keys arrive, add completion verification in `api/key/create.js` (TODO markers).
+- `public/index.html` holds `LINKVERTISE_URL` and `WORKINK_URL`.
+- Inside each dashboard set destination/target to `https://obsidian-key-system.vercel.app/get-key`.
+- **Linkvertise completion proof**: dashboard Settings → enable **Anti-Bypassing** → copy the
+  auth token → Vercel env `LINKVERTISE_TOKEN` → redeploy. From then on linkvertise keys
+  require a confirmed `?hash=` (verified server-side, single-use, ~10s window).
+  Without the env var, linkvertise stays session-gated (order enforced, completion not proven).
+- **Work.ink**: no public completion-verification API exists, so it stays session-gated.
+  If they publish one, wire it into `api/checkpoint/lv-verify.js`-style flow.
 
 ## TODOs before live
 
-- [ ] Real completion proof per provider in `create.js` (Work.ink/Linkvertise API).
+- [x] KV connected? Check `/api/health` → must say "connected", NOT "memory-fallback".
+- [ ] `LINKVERTISE_TOKEN` set + Anti-Bypassing enabled in dashboard.
 - [ ] Reset policy in `reset.js` (admin secret or cooldown).
 - [ ] Custom domain if you want it instead of `*.vercel.app`.
