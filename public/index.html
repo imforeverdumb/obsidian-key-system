@@ -3,61 +3,96 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Obsidian — Get Key</title>
+<title>Obsidian — Get a Key</title>
 <style>
+  :root { color-scheme: dark; }
   body { background:#0d0d12; color:#eee; font-family:Segoe UI,Arial,sans-serif; display:flex; justify-content:center; padding:40px 16px; margin:0; }
-  .card { background:#16161d; border:1px solid #2a2a35; border-radius:12px; padding:28px; max-width:480px; width:100%; text-align:center; }
+  .card { background:#16161d; border:1px solid #2a2a35; border-radius:12px; padding:28px; max-width:520px; width:100%; text-align:center; }
   h1 { margin:0 0 8px; font-size:24px; }
-  p { color:#9a9aad; font-size:14px; }
-  button { background:#7c3aed; color:#fff; border:0; border-radius:8px; padding:12px 20px; font-size:15px; font-weight:700; cursor:pointer; width:100%; margin-top:12px; }
-  button:disabled { opacity:.6; cursor:wait; }
-  #key { background:#0d0d12; border:1px dashed #7c3aed; border-radius:8px; padding:14px; margin-top:14px; font-size:18px; font-weight:700; letter-spacing:1px; display:none; word-break:break-all; }
+  p { color:#9a9aad; font-size:14px; line-height:1.5; }
+  .steps { text-align:left; background:#0d0d12; border:1px solid #2a2a35; border-radius:8px; padding:14px 16px; margin:16px 0; font-size:13px; color:#c9c9d6; }
+  .providers { display:flex; gap:10px; margin:12px 0; }
+  .providers button { flex:1; }
+  button { background:#7c3aed; color:#fff; border:0; border-radius:8px; padding:14px 20px; font-size:15px; font-weight:700; cursor:pointer; width:100%; margin-top:12px; }
+  button.ghost { background:#23232e; border:1px solid #3a3a48; }
+  button:disabled { opacity:.45; cursor:wait; }
+  button small { display:block; font-weight:400; font-size:12px; color:#c9c9d6; margin-top:4px; }
   #status { min-height:20px; font-size:13px; margin-top:10px; color:#9a9aad; }
   code { color:#c4b5fd; }
 </style>
 </head>
 <body>
 <div class="card">
-  <h1>Obsidian Key System</h1>
-  <p>Keys last 24h and lock to 1 PC on first use.<br/>Complete the checkpoint (TODO: add Linkvertise/LootLabs here), then press Get Key.</p>
-  <p>HWID: <code id="hwid">—</code></p>
-  <p><a href="/get-key" style="color:#a78bfa">Continue to /get-key →</a></p>
-  <button id="btn">Get Key (quick)</button>
-  <div id="key"></div>
+  <h1>Obsidian — Get a Key</h1>
+  <p>Keys last 24h and lock to 1 PC on first use.<br/>Pick a provider below. After you finish it you'll land on <code>/get-key</code> to receive your key.</p>
+
+  <div class="steps">
+    <b>1.</b> Your HWID: <code id="hwid">—</code><br/>
+    <b>2.</b> Press a provider — this registers your checkpoint, then sends you there.<br/>
+    <b>3.</b> Complete it. It redirects back to <code>/get-key</code> where your key is issued.<br/>
+    <b>4.</b> Paste the key into the Obsidian app.
+  </div>
+
+  <div class="providers">
+    <button id="btnLv" class="ghost">Linkvertise<small>Step 1 → redirects to /get-key</small></button>
+    <button id="btnWi" class="ghost">Work.ink<small>Step 1 → redirects to /get-key</small></button>
+  </div>
+
   <div id="status"></div>
-  <p style="margin-top:16px">Paste the key into the Obsidian app on startup.</p>
+  <p>Opened from the app? Your HWID fills in automatically via <code>?hwid=</code>.</p>
 </div>
 <script>
+  // ▼▼▼ PASTE YOUR REAL LINKS HERE when ready. ▼▼▼
+  // IMPORTANT: set each link's destination/target to:
+  //   https://obsidian-key-system.vercel.app/get-key
+  // so the provider sends the user back here after completion.
+  const LINKVERTISE_URL = ""; // e.g. "https://linkvertise.com/XXXXX/obsidian"
+  const WORKINK_URL = "";     // e.g. "https://work.ink/XXXXX/obsidian"
+  // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
   const API = "https://obsidian-key-system.vercel.app";
   const params = new URLSearchParams(location.search);
   const hwid = params.get("hwid") || "";
   document.getElementById("hwid").textContent = hwid || "(open this page from the Obsidian app)";
-  const btn = document.getElementById("btn");
-  const keyBox = document.getElementById("key");
   const status = document.getElementById("status");
-  btn.onclick = async () => {
-    btn.disabled = true;
-    status.textContent = "Issuing key…";
+  const btnLv = document.getElementById("btnLv");
+  const btnWi = document.getElementById("btnWi");
+
+  function saveSession(s) {
     try {
-      // TODO: include checkpointToken once your checkpoint is wired.
-      const r = await fetch(API + "/api/key/create", {
+      sessionStorage.setItem("obs_session", s);
+      document.cookie = "obs_session=" + encodeURIComponent(s) + "; Max-Age=1200; Path=/; SameSite=Lax";
+    } catch {}
+  }
+
+  async function go(provider, providerUrl) {
+    if (!hwid) { status.textContent = "Missing HWID — open this page from the Obsidian app (Get Key button)."; return; }
+    btnLv.disabled = btnWi.disabled = true;
+    status.textContent = "Registering checkpoint…";
+    try {
+      const r = await fetch(API + "/api/checkpoint/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hwid })
+        body: JSON.stringify({ hwid, provider })
       });
       const j = await r.json();
-      if (j.ok) {
-        keyBox.style.display = "block";
-        keyBox.textContent = j.key;
-        status.textContent = "Valid until " + j.expiresAt;
+      if (!j.ok) { status.textContent = "Error: " + (j.error || "unknown"); btnLv.disabled = btnWi.disabled = false; return; }
+      saveSession(j.session);
+      if (providerUrl) {
+        // Same-tab so our session cookie/storage is there when they come back.
+        location.href = providerUrl;
       } else {
-        status.textContent = "Error: " + (j.error || "unknown");
+        // No provider link configured yet — go straight to receive (testing only).
+        location.href = "/get-key?hwid=" + encodeURIComponent(hwid) + "&provider=" + encodeURIComponent(provider) + "&session=" + encodeURIComponent(j.session);
       }
     } catch (e) {
       status.textContent = "Network error: " + e.message;
+      btnLv.disabled = btnWi.disabled = false;
     }
-    btn.disabled = false;
-  };
+  }
+
+  btnLv.onclick = () => go("linkvertise", LINKVERTISE_URL);
+  btnWi.onclick = () => go("workink", WORKINK_URL);
 </script>
 </body>
 </html>

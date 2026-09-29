@@ -31,21 +31,24 @@ Option A — same repo, Vercel project rooted at `keysystem/` (recommended):
 Option B — separate repo just for keysystem:
 1. Copy `keysystem/` contents to a new repo root, push, import in Vercel with no root override.
 
-## Client wiring
+## Flow (order enforced)
 
-- Obsidian app opens `https://obsidian-key-system.vercel.app/get-key?hwid=XXX` on Get Key.
-- On startup/verify it POSTs to `/api/key/verify` with `{ key, hwid }`.
-- First verify binds HWID; mismatch = "locked to another PC".
+1. App opens `/?hwid=XXX`. User picks Linkvertise/Work.ink.
+2. `/` calls `POST /api/checkpoint/start { hwid, provider }` → single-use session (20 min, HWID+IP bound), then redirects to the provider.
+3. Provider (target = `https://obsidian-key-system.vercel.app/get-key`) sends user back.
+4. `/get-key` checks `GET /api/checkpoint/status?session=` → enables Generate → `POST /api/key/create { hwid, provider, session }` consumes the session, issues 24h key.
+5. App verifies via `POST /api/key/verify { key, hwid }` (binds HWID first use).
+
+Direct `/get-key` visits, replays, HWID/IP swaps all fail. Rate limits: 10 starts + 10 creates per IP/hour.
 
 ## Provider links (you provide later)
 
-- Edit `public/get-key.html`: set `LINKVERTISE_URL` and `WORKINK_URL` consts at the top.
-- They open in a new tab with `?hwid=` appended; user returns, ticks the box, gets a key.
-- `create.js` stores `provider` per key; add real callback/token verification there later.
+- Edit `public/index.html`: set `LINKVERTISE_URL` and `WORKINK_URL`.
+- Inside each dashboard set its destination/target to `https://obsidian-key-system.vercel.app/get-key`.
+- When API keys arrive, add completion verification in `api/key/create.js` (TODO markers).
 
 ## TODOs before live
 
-- [ ] Real checkpoint proof in `create.js` per provider (callback/token).
-- [ ] IP rate limits on create/verify.
+- [ ] Real completion proof per provider in `create.js` (Work.ink/Linkvertise API).
 - [ ] Reset policy in `reset.js` (admin secret or cooldown).
 - [ ] Custom domain if you want it instead of `*.vercel.app`.

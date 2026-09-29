@@ -3,92 +3,83 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Obsidian — Get Key</title>
+<title>Obsidian — Receive Key</title>
 <style>
   :root { color-scheme: dark; }
   body { background:#0d0d12; color:#eee; font-family:Segoe UI,Arial,sans-serif; display:flex; justify-content:center; padding:40px 16px; margin:0; }
   .card { background:#16161d; border:1px solid #2a2a35; border-radius:12px; padding:28px; max-width:520px; width:100%; text-align:center; }
   h1 { margin:0 0 8px; font-size:24px; }
   p { color:#9a9aad; font-size:14px; line-height:1.5; }
-  .steps { text-align:left; background:#0d0d12; border:1px solid #2a2a35; border-radius:8px; padding:14px 16px; margin:16px 0; font-size:13px; color:#c9c9d6; }
-  .providers { display:flex; gap:10px; margin:12px 0; }
-  .providers button { flex:1; }
   button { background:#7c3aed; color:#fff; border:0; border-radius:8px; padding:12px 20px; font-size:15px; font-weight:700; cursor:pointer; width:100%; margin-top:12px; }
-  button.ghost { background:#23232e; border:1px solid #3a3a48; }
   button:disabled { opacity:.45; cursor:not-allowed; }
-  button.selected { outline:2px solid #a78bfa; }
   #key { background:#0d0d12; border:1px dashed #7c3aed; border-radius:8px; padding:14px; margin-top:14px; font-size:18px; font-weight:700; letter-spacing:1px; display:none; word-break:break-all; cursor:pointer; }
   #status { min-height:20px; font-size:13px; margin-top:10px; color:#9a9aad; }
   code { color:#c4b5fd; }
-  label.check { display:flex; gap:8px; align-items:flex-start; text-align:left; font-size:13px; color:#c9c9d6; margin-top:12px; cursor:pointer; }
 </style>
 </head>
 <body>
 <div class="card">
-  <h1>Obsidian — Get Key</h1>
-  <p>Keys last 24h and lock to 1 PC on first use.<br/>Pick a provider, complete the step, then generate your key.</p>
-
-  <div class="steps">
-    <b>1.</b> Your HWID: <code id="hwid">—</code><br/>
-    <b>2.</b> Choose Linkvertise or Work.ink below and complete it.<br/>
-    <b>3.</b> Tick "I've completed the step", then press Get Key.<br/>
-    <b>4.</b> Paste the key into the Obsidian app.
-  </div>
-
-  <div class="providers">
-    <button id="btnLv" class="ghost">Linkvertise</button>
-    <button id="btnWi" class="ghost">Work.ink</button>
-  </div>
-
-  <label class="check"><input type="checkbox" id="done" /> I've completed the step on the provider site.</label>
-
-  <button id="btn" disabled>Get Key</button>
+  <h1>Obsidian — Your Key</h1>
+  <p>You finished the step — generate your key below.<br/>HWID: <code id="hwid">—</code> · via <code id="prov">—</code></p>
+  <button id="btn" disabled>Checking checkpoint…</button>
   <div id="key" title="Click to copy"></div>
   <div id="status"></div>
-  <p><a href="/" style="color:#a78bfa">← back</a></p>
+  <p>Paste the key into the Obsidian app on startup.<br/><a href="/" style="color:#a78bfa">← start over</a></p>
 </div>
 <script>
-  // ▼▼▼ FILL THESE IN when you have them — paste your real destination URLs. ▼▼▼
-  const LINKVERTISE_URL = ""; // e.g. "https://linkvertise.com/xxxx/obsidian"
-  const WORKINK_URL = "";     // e.g. "https://work.ink/xxxx/obsidian"
-  // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
-
   const API = "https://obsidian-key-system.vercel.app";
   const params = new URLSearchParams(location.search);
-  const hwid = params.get("hwid") || "";
-  document.getElementById("hwid").textContent = hwid || "(open this page from the Obsidian app)";
 
-  let provider = "";
-  const btnLv = document.getElementById("btnLv");
-  const btnWi = document.getElementById("btnWi");
-  const done = document.getElementById("done");
+  function readSession() {
+    const q = params.get("session");
+    if (q) return q;
+    try {
+      const s = sessionStorage.getItem("obs_session");
+      if (s) return s;
+    } catch {}
+    const m = document.cookie.match(/(?:^|;\s*)obs_session=([^;]+)/);
+    return m ? decodeURIComponent(m[1]) : "";
+  }
+
+  const session = readSession();
+  // HWID/provider may arrive via query (provider return), sessionStorage, or cookie fallback.
+  const hwid = params.get("hwid") || "";
+  const provider = (params.get("provider") || "").toLowerCase();
+  document.getElementById("hwid").textContent = hwid || "(unknown — restart from home)";
+  document.getElementById("prov").textContent = provider || "(unknown)";
+
   const btn = document.getElementById("btn");
   const keyBox = document.getElementById("key");
   const status = document.getElementById("status");
+  let validProvider = provider;
 
-  function refresh() {
-    btnLv.classList.toggle("selected", provider === "linkvertise");
-    btnWi.classList.toggle("selected", provider === "workink");
-    btn.disabled = !(provider && done.checked);
-    if (!provider) status.textContent = "Choose Linkvertise or Work.ink to start.";
-    else if (!done.checked) status.textContent = "Complete the " + provider + " step, then tick the box.";
-    else status.textContent = "Ready — press Get Key.";
+  async function init() {
+    if (!session) {
+      status.textContent = "No checkpoint found. Keys are only issued after the home-page step — start there.";
+      btn.textContent = "No checkpoint — go home";
+      btn.disabled = false;
+      btn.onclick = () => location.href = "/";
+      return;
+    }
+    try {
+      const r = await fetch(API + "/api/checkpoint/status?session=" + encodeURIComponent(session));
+      const j = await r.json();
+      if (!j.ok || !j.valid) {
+        status.textContent = (j.error || "Session invalid.") + " Start from the home page again.";
+        btn.textContent = "Session invalid — go home";
+        btn.disabled = false;
+        btn.onclick = () => location.href = "/";
+        return;
+      }
+      validProvider = (j.provider || provider).toLowerCase();
+      document.getElementById("prov").textContent = validProvider;
+      btn.textContent = "Generate Key";
+      btn.disabled = false;
+      status.textContent = "Checkpoint verified — valid until " + (j.expiresAt || "?") + ".";
+    } catch (e) {
+      status.textContent = "Network error: " + e.message;
+    }
   }
-
-  btnLv.onclick = () => {
-    provider = "linkvertise";
-    if (LINKVERTISE_URL) window.open(LINKVERTISE_URL + (hwid ? (LINKVERTISE_URL.includes("?") ? "&" : "?") + "hwid=" + encodeURIComponent(hwid) : ""), "_blank");
-    else status.textContent = "Linkvertise URL not set yet — ask the owner. You can still test below.";
-    refresh();
-  };
-  btnWi.onclick = () => {
-    provider = "workink";
-    if (WORKINK_URL) window.open(WORKINK_URL + (hwid ? (WORKINK_URL.includes("?") ? "&" : "?") + "hwid=" + encodeURIComponent(hwid) : ""), "_blank");
-    else status.textContent = "Work.ink URL not set yet — ask the owner. You can still test below.";
-    refresh();
-  };
-  done.onchange = refresh;
-  refresh();
 
   keyBox.onclick = () => {
     if (keyBox.textContent) navigator.clipboard?.writeText(keyBox.textContent).then(
@@ -97,28 +88,37 @@
   };
 
   btn.onclick = async () => {
+    if (btn.disabled || !session) return;
     btn.disabled = true;
-    status.textContent = "Issuing key…";
+    btn.textContent = "Issuing key…";
     try {
       const r = await fetch(API + "/api/key/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // checkpointToken: wire provider callback verification here later.
-        body: JSON.stringify({ hwid, provider })
+        body: JSON.stringify({ hwid, provider: validProvider, session })
       });
       const j = await r.json();
       if (j.ok) {
         keyBox.style.display = "block";
         keyBox.textContent = j.key;
-        status.textContent = "Valid until " + j.expiresAt + " — click key to copy.";
+        status.textContent = "Valid until " + j.expiresAt + " — click key to copy. Session used up.";
+        btn.textContent = "Key issued";
+        try { sessionStorage.removeItem("obs_session"); } catch {}
+        document.cookie = "obs_session=; Max-Age=0; Path=/";
       } else {
         status.textContent = "Error: " + (j.error || "unknown");
+        btn.textContent = "Try again from home";
+        btn.disabled = false;
+        btn.onclick = () => location.href = "/";
       }
     } catch (e) {
       status.textContent = "Network error: " + e.message;
+      btn.disabled = false;
+      btn.textContent = "Generate Key";
     }
-    refresh();
   };
+
+  init();
 </script>
 </body>
 </html>
