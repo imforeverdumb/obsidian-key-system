@@ -25,6 +25,8 @@ Option A — same repo, Vercel project rooted at `keysystem/` (recommended):
 4. Add env vars (Storage → Create KV database, or manually):
    - `KV_REST_API_URL`, `KV_REST_API_TOKEN`
    - optional `OBSIDIAN_API_SECRET` (if set, client must send `x-obsidian-secret`)
+   - `ADMIN_KEYS` (comma-separated master keys: skip KV/HWID checks, ~never expire.
+     Set in Vercel dashboard ONLY — never commit real keys, this repo is public.)
 5. Deploy → live at `https://obsidian-key-system.vercel.app`
 6. Test: `GET /api/health`, then POST to `/api/key/create` and `/api/key/verify`.
 

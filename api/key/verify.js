@@ -3,7 +3,7 @@
 // First valid verify binds the key to that HWID.
 //
 // Live URL: https://obsidian-key-system.vercel.app/api/key/verify
-const { KEY_TTL_SECONDS, hashKey, normalizeHwid } = require("../../lib/keys");
+const { KEY_TTL_SECONDS, hashKey, normalizeHwid, isAdminKey } = require("../../lib/keys");
 const { storeGet, storeSet, storeDel } = require("../../lib/store");
 
 function readBody(req) {
@@ -38,6 +38,12 @@ module.exports = async (req, res) => {
   const key = String(body.key || "").trim();
   const hwid = normalizeHwid(body.hwid);
   if (!key || !hwid) return res.status(400).json({ valid: false, error: "Missing key/hwid." });
+
+  // Master key: no KV lookup, no HWID lock, effectively never expires.
+  if (isAdminKey(key)) {
+    const expiresAt = new Date(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000).toISOString();
+    return res.status(200).json({ valid: true, expiresAt, admin: true, bound: false });
+  }
 
   const record = await storeGet(`key:${hashKey(key)}`);
   if (!record) return res.status(200).json({ valid: false, error: "Invalid or expired key." });
