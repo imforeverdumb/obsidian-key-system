@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Obsidian — Get Key</title>
+<style>
+  :root { color-scheme: dark; }
+  body { background:#0d0d12; color:#eee; font-family:Segoe UI,Arial,sans-serif; display:flex; justify-content:center; padding:40px 16px; margin:0; }
+  .card { background:#16161d; border:1px solid #2a2a35; border-radius:12px; padding:28px; max-width:520px; width:100%; text-align:center; }
+  h1 { margin:0 0 8px; font-size:24px; }
+  p { color:#9a9aad; font-size:14px; line-height:1.5; }
+  .steps { text-align:left; background:#0d0d12; border:1px solid #2a2a35; border-radius:8px; padding:14px 16px; margin:16px 0; font-size:13px; color:#c9c9d6; }
+  .providers { display:flex; gap:10px; margin:12px 0; }
+  .providers button { flex:1; }
+  button { background:#7c3aed; color:#fff; border:0; border-radius:8px; padding:12px 20px; font-size:15px; font-weight:700; cursor:pointer; width:100%; margin-top:12px; }
+  button.ghost { background:#23232e; border:1px solid #3a3a48; }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  button.selected { outline:2px solid #a78bfa; }
+  #key { background:#0d0d12; border:1px dashed #7c3aed; border-radius:8px; padding:14px; margin-top:14px; font-size:18px; font-weight:700; letter-spacing:1px; display:none; word-break:break-all; cursor:pointer; }
+  #status { min-height:20px; font-size:13px; margin-top:10px; color:#9a9aad; }
+  code { color:#c4b5fd; }
+  label.check { display:flex; gap:8px; align-items:flex-start; text-align:left; font-size:13px; color:#c9c9d6; margin-top:12px; cursor:pointer; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Obsidian — Get Key</h1>
+  <p>Keys last 24h and lock to 1 PC on first use.<br/>Pick a provider, complete the step, then generate your key.</p>
+
+  <div class="steps">
+    <b>1.</b> Your HWID: <code id="hwid">—</code><br/>
+    <b>2.</b> Choose Linkvertise or Work.ink below and complete it.<br/>
+    <b>3.</b> Tick "I've completed the step", then press Get Key.<br/>
+    <b>4.</b> Paste the key into the Obsidian app.
+  </div>
+
+  <div class="providers">
+    <button id="btnLv" class="ghost">Linkvertise</button>
+    <button id="btnWi" class="ghost">Work.ink</button>
+  </div>
+
+  <label class="check"><input type="checkbox" id="done" /> I've completed the step on the provider site.</label>
+
+  <button id="btn" disabled>Get Key</button>
+  <div id="key" title="Click to copy"></div>
+  <div id="status"></div>
+  <p><a href="/" style="color:#a78bfa">← back</a></p>
+</div>
+<script>
+  // ▼▼▼ FILL THESE IN when you have them — paste your real destination URLs. ▼▼▼
+  const LINKVERTISE_URL = ""; // e.g. "https://linkvertise.com/xxxx/obsidian"
+  const WORKINK_URL = "";     // e.g. "https://work.ink/xxxx/obsidian"
+  // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
+  const API = "https://obsidian-key-system.vercel.app";
+  const params = new URLSearchParams(location.search);
+  const hwid = params.get("hwid") || "";
+  document.getElementById("hwid").textContent = hwid || "(open this page from the Obsidian app)";
+
+  let provider = "";
+  const btnLv = document.getElementById("btnLv");
+  const btnWi = document.getElementById("btnWi");
+  const done = document.getElementById("done");
+  const btn = document.getElementById("btn");
+  const keyBox = document.getElementById("key");
+  const status = document.getElementById("status");
+
+  function refresh() {
+    btnLv.classList.toggle("selected", provider === "linkvertise");
+    btnWi.classList.toggle("selected", provider === "workink");
+    btn.disabled = !(provider && done.checked);
+    if (!provider) status.textContent = "Choose Linkvertise or Work.ink to start.";
+    else if (!done.checked) status.textContent = "Complete the " + provider + " step, then tick the box.";
+    else status.textContent = "Ready — press Get Key.";
+  }
+
+  btnLv.onclick = () => {
+    provider = "linkvertise";
+    if (LINKVERTISE_URL) window.open(LINKVERTISE_URL + (hwid ? (LINKVERTISE_URL.includes("?") ? "&" : "?") + "hwid=" + encodeURIComponent(hwid) : ""), "_blank");
+    else status.textContent = "Linkvertise URL not set yet — ask the owner. You can still test below.";
+    refresh();
+  };
+  btnWi.onclick = () => {
+    provider = "workink";
+    if (WORKINK_URL) window.open(WORKINK_URL + (hwid ? (WORKINK_URL.includes("?") ? "&" : "?") + "hwid=" + encodeURIComponent(hwid) : ""), "_blank");
+    else status.textContent = "Work.ink URL not set yet — ask the owner. You can still test below.";
+    refresh();
+  };
+  done.onchange = refresh;
+  refresh();
+
+  keyBox.onclick = () => {
+    if (keyBox.textContent) navigator.clipboard?.writeText(keyBox.textContent).then(
+      () => status.textContent = "Key copied — paste it in Obsidian.",
+      () => {});
+  };
+
+  btn.onclick = async () => {
+    btn.disabled = true;
+    status.textContent = "Issuing key…";
+    try {
+      const r = await fetch(API + "/api/key/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // checkpointToken: wire provider callback verification here later.
+        body: JSON.stringify({ hwid, provider })
+      });
+      const j = await r.json();
+      if (j.ok) {
+        keyBox.style.display = "block";
+        keyBox.textContent = j.key;
+        status.textContent = "Valid until " + j.expiresAt + " — click key to copy.";
+      } else {
+        status.textContent = "Error: " + (j.error || "unknown");
+      }
+    } catch (e) {
+      status.textContent = "Network error: " + e.message;
+    }
+    refresh();
+  };
+</script>
+</body>
+</html>

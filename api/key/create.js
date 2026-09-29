@@ -1,8 +1,10 @@
 // POST /api/key/create — issue a 24h key (unbound, HWID binds on first verify).
-// Body: { hwid?: string, checkpointToken?: string }
+// Body: { hwid?: string, provider?: "linkvertise"|"workink"|string, checkpointToken?: string }
 //
+// Provider flow: site /get-key lets the user pick Linkvertise or Work.ink,
+// completes it there, then calls this endpoint with { hwid, provider }.
 // TODO (before going live):
-//  1. Verify checkpointToken (Linkvertise/LootLabs/custom) — reject if missing/invalid.
+//  1. Verify checkpointToken/callback per provider — reject if missing/invalid.
 //  2. Rate-limit by IP (e.g. Vercel KV 5/hour) to stop key farming.
 //
 // Live URL: https://obsidian-key-system.vercel.app/api/key/create
@@ -38,7 +40,9 @@ module.exports = async (req, res) => {
   }
 
   const body = await readBody(req);
-  // TODO: validate body.checkpointToken here before issuing.
+  // TODO: validate body.checkpointToken per provider here before issuing.
+  const provider = String(body.provider || "").slice(0, 32) || null;
+  const hwidHint = String(body.hwid || "").slice(0, 128) || null;
 
   const key = generateKey();
   const keyHash = hashKey(key);
@@ -47,7 +51,7 @@ module.exports = async (req, res) => {
 
   await storeSet(
     `key:${keyHash}`,
-    { hwid: null, createdAt: new Date(now).toISOString(), expiresAt },
+    { hwid: null, createdAt: new Date(now).toISOString(), expiresAt, provider, hwidHint },
     KEY_TTL_SECONDS
   );
 
